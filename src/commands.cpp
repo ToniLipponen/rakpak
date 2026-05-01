@@ -167,7 +167,10 @@ namespace rakpak::cli
         // compile_commands.json
     }
 
-    void rename_project(AppContext& app_context, const fs::path& project_path, std::string_view project_name)
+    void generate_from_template(
+        AppContext& app_context, 
+        std::string_view name, 
+        std::optional<std::string_view> project_name)
     {
     }
 

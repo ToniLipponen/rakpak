@@ -1,5 +1,4 @@
 #include <project/project.hpp>
-#include <constants.hpp>
 #include <utils/string.hpp>
 #include <nlohmann/json.hpp>
 #include <dependency_source.hpp>
@@ -205,7 +204,7 @@ namespace rakpak::project
             substitute_vars(item, target);
             auto expanded = utils::string::expand_pattern(item);
             for (const auto& path_str : expanded)
-                target.source_files.insert(path_str);
+                target.source_files.insert(fs::path(path_str).lexically_normal());
         }
     }
 

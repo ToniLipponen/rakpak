@@ -11,15 +11,14 @@ namespace rakpak::pipeline
     {
         auto& logger = app_context.logger;
 
-        //auto& package = ctx.build_output.package;
         auto& binary = ctx.build_output.binary;
         auto& object = ctx.build_output.object;
 
         logger->log_info("Initializing build output in '{}'", ctx.project_root.string());
 
-        binary.root_directory = ctx.project_root / "bin";
+        binary.root_directory = ctx.project_root / "build/bin";
         binary.directory = binary.root_directory / ctx.build_profile.name;
-        object.root_directory = ctx.project_root / "obj";
+        object.root_directory = ctx.project_root / "build/obj";
         object.directory = object.root_directory / ctx.build_profile.name;
 
         if (ctx.target.metadata.output_name.empty())
@@ -50,11 +49,10 @@ namespace rakpak::pipeline
     {
         AppContext& app_context = pipeline_context.app_context;
         auto& logger = app_context.logger;
-        auto scope = logger->scope("Pipeline");
+        auto scope = logger->scope(project.metadata.name);
 
         logger->log_info(
-            "Initializing build context for {}:{}", 
-            project.metadata.name,
+            "Initializing {} build context", 
             app_context.build_options.profile 
         );
 
@@ -92,16 +90,15 @@ namespace rakpak::pipeline
 
     TU get_tu_info(const fs::path& src_file_path, const BuildOutput::Object& object_output)
     {
-        const fs::path src_normalized = src_file_path.lexically_normal();
-        const fs::path src_dir = fs::path(src_normalized).remove_filename();
-        const fs::path object_file_name = src_normalized.filename().replace_extension(".o");
-        const fs::path dep_file_name = src_normalized.filename().replace_extension(".d");
+        const fs::path src_dir = fs::path(src_file_path).remove_filename();
+        const fs::path object_file_name = src_file_path.filename().replace_extension(".o");
+        const fs::path dep_file_name = src_file_path.filename().replace_extension(".d");
         const fs::path output_dir = object_output.directory / src_dir; 
         if (!fs::exists(output_dir))
             fs::create_directories(output_dir);
         return TU
         {
-            src_normalized,
+            src_file_path,
             output_dir / object_file_name,
             output_dir / dep_file_name
         };
@@ -111,7 +108,6 @@ namespace rakpak::pipeline
     {
         AppContext& app_context = pipeline_context.app_context;
         auto& logger = app_context.logger;
-
         auto& ctx = pipeline_context.build_context;
         // Clear
         ctx.linker_args.clear();
@@ -122,8 +118,7 @@ namespace rakpak::pipeline
         ctx.build_queue.pop_front();
         initialize_build_output(app_context, ctx);
 
-        ctx.linker_args.push_back_range(target.link_flags.begin(), target.link_flags.end());
-        //std::vector<const Module*> modules;
+        ctx.linker_args.insert(target.link_flags.begin(), target.link_flags.end());
         UniqueVector<const Module*> modules;
         for (const auto& dependency : target.dependencies)
         {
@@ -133,20 +128,20 @@ namespace rakpak::pipeline
                 if (dependency.from == "pkg-config")
                 {
                     auto pkg_info = pkg_config::get_pkg(dependency.name);
-                    Module new_pkg;
-                    new_pkg.name = dependency.name;
-                    new_pkg.usage_requirements.include_paths = pkg_info.include_paths;
-                    new_pkg.usage_requirements.link_flags = pkg_info.libs;
-                    new_pkg.usage_requirements.build_flags = pkg_info.cflags;
-                    new_pkg.linkage = BuildTarget::Variant::Shared;
-                    PackageManager::instance().add_module(dependency.from, new_pkg);
+                    Module new_module;
+                    new_module.name = dependency.name;
+                    new_module.usage_requirements.include_paths = pkg_info.include_paths;
+                    new_module.usage_requirements.link_flags = pkg_info.libs;
+                    new_module.usage_requirements.build_flags = pkg_info.cflags;
+                    new_module.linkage = BuildTarget::Variant::Shared;
+                    PackageManager::instance().add_module(dependency.from, new_module);
                 }
                 else if (dependency.from == "system")
                 {
-                    Module new_pkg;
-                    new_pkg.name = dependency.name;
-                    new_pkg.usage_requirements.link_flags.push_back("-l" + dependency.name);
-                    PackageManager::instance().add_module(dependency.from, new_pkg);
+                    Module new_module;
+                    new_module.name = dependency.name;
+                    new_module.usage_requirements.link_flags.push_back("-l" + dependency.name);
+                    PackageManager::instance().add_module(dependency.from, new_module);
                 }
             }
             _module = PackageManager::instance().get_module(dependency.from, dependency.name);
@@ -154,7 +149,6 @@ namespace rakpak::pipeline
                 _module = ctx.module_provider.get_module(dependency.name);
             if (_module != nullptr)
                 modules.push_back(_module);
-                //satisfy_package_usage_requirements(pipeline_context, pkg.value());
             else
             {
                 logger->log_error("Failed to find module '{}' from source '{}'", dependency.name, dependency.from);
@@ -167,28 +161,29 @@ namespace rakpak::pipeline
             && ctx.target.metadata.variant == BuildTarget::Variant::Shared)
             ctx.compiler_args.push_back("-fPIC");
         
-        // Build flags
-        ctx.compiler_args.push_back_range(target.build_flags.begin(), target.build_flags.end());
-        ctx.compiler_args.push_back_range(ctx.build_profile.build_flags.begin(), ctx.build_profile.build_flags.end());
-        for (auto mod : modules.get_vector())
-        {
-            auto& ur = mod->usage_requirements;
-            ctx.compiler_args.push_back_range(ur.build_flags.begin(), ur.build_flags.end());
-            ctx.linker_args.push_back_range(ur.link_flags.begin(), ur.link_flags.end());
+        { // Build flags
+            ctx.compiler_args.insert(target.build_flags.begin(), target.build_flags.end());
+            ctx.compiler_args.insert(ctx.build_profile.build_flags.begin(), ctx.build_profile.build_flags.end());
+            for (auto mod : modules.get_vector())
+            {
+                auto& ur = mod->usage_requirements;
+                ctx.compiler_args.insert(ur.build_flags.begin(), ur.build_flags.end());
+                ctx.linker_args.insert(ur.link_flags.begin(), ur.link_flags.end());
+            }
+            for (const auto& define : target.defines)
+                ctx.compiler_args.push_back(define.to_string());
+            for (const auto& define : ctx.build_profile.defines)
+                ctx.compiler_args.push_back(define.to_string());
         }
-        for (const auto& define : target.defines)
-            ctx.compiler_args.push_back(define.to_string());
-        for (const auto& define : ctx.build_profile.defines)
-            ctx.compiler_args.push_back(define.to_string());
-        //
-        // Include paths
-        for (const auto& path : target.include_directories)
-            ctx.compiler_args.push_back("-I" + path.string());
-        for (auto mod : modules.get_vector())
-        {
-            auto& ur = mod->usage_requirements;
-            for (auto& path : ur.include_paths)
+        { // Include paths
+            for (const auto& path : target.include_directories)
                 ctx.compiler_args.push_back("-I" + path.string());
+            for (auto mod : modules.get_vector())
+            {
+                auto& ur = mod->usage_requirements;
+                for (auto& path : ur.include_paths)
+                    ctx.compiler_args.push_back("-I" + path.string());
+            }
         }
 
         for (const auto& path : target.source_files)
@@ -196,13 +191,12 @@ namespace rakpak::pipeline
             TU tu = get_tu_info(path, ctx.build_output.object);
             if (pipeline_context.build_cache.needs_rebuild(tu.source_path, tu.object_path))
             {
-                logger->log_info("Detected changes '{}' rebuilding", path.lexically_normal().string());
-                //ctx.source_files.push_back(path);
+                logger->log_info("Detected changes '{}' rebuilding", path.string());
                 ctx.tu_queue.push_back(std::move(tu));
             }
             else
             {
-                logger->log_info("Up to date, skipping '{}'", path.lexically_normal().string());
+                logger->log_info("Up to date, skipping '{}'", path.string());
                 ctx.build_output.object.objects.push_back(std::move(tu.object_path));
             }
         }

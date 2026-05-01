@@ -49,7 +49,4 @@ namespace rakpak::pipeline
     void compile(PipelineContext& ctx);
     void link(PipelineContext& ctx);
     void finalize(PipelineContext& ctx);
-
-    void initialize_install_target(PipelineContext& ctx);
-    void install(PipelineContext& ctx);
 }

@@ -1,7 +1,6 @@
 #pragma once
 #include <common_includes.hpp>
 #include <project/build_target.hpp>
-#include <package_info.hpp>
 
 namespace rakpak
 {
@@ -9,8 +8,8 @@ namespace rakpak
     {
         struct Binary 
         {
-            fs::path root_directory; // ./bin
-            fs::path directory; // ./bin/release/
+            fs::path root_directory; // build/bin
+            fs::path directory; // build/bin/<profile>/
             std::string name; // libExample.so
 
             fs::path full_path() const 
@@ -21,12 +20,11 @@ namespace rakpak
 
         struct Object
         {
-            fs::path root_directory; // ./obj
-            fs::path directory; // ./obj/release/
-            std::vector<fs::path> objects; // [./obj/release/src/example.o]
+            fs::path root_directory; // build/obj/
+            fs::path directory; // build/obj/<profile>/
+            std::vector<fs::path> objects; // [ build/obj/<profile>/src/example.o ]
         };
 
-        Module package;
         Binary binary;
         Object object;
     };

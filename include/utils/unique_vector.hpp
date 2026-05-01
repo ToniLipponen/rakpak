@@ -21,7 +21,7 @@ namespace rakpak
         }
 
         template<typename IteratorType>
-        void push_back_range(IteratorType begin, IteratorType end)
+        void insert(IteratorType begin, IteratorType end)
         {
             while (begin != end)
             {

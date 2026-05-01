@@ -23,6 +23,13 @@ namespace rakpak
         bool purge = false;
     };
 
+    struct InstallOptions
+    {
+        InstallScope scope;
+        bool replace = false;
+        bool update_versioned_symlinks = false;
+    };
+
     struct AppContext
     {
         InstallScope install_scope = InstallScope::Local;
