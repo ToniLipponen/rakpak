@@ -15,7 +15,7 @@ namespace rakpak::project
         struct Exports
         {
             std::vector<Define> defines;
-            std::unordered_set<fs::path> include_directories;
+            std::unordered_set<fs::path> include_paths;
             std::vector<std::string> link_flags;
         };
         struct Metadata
@@ -35,7 +35,7 @@ namespace rakpak::project
 
         std::unordered_set<std::string> build_flags;
         std::unordered_set<std::string> link_flags;
-        std::unordered_set<fs::path> include_directories;
+        std::unordered_set<fs::path> include_paths;
         std::vector<Define> defines;
         std::vector<Dependency> dependencies;
         std::unordered_set<fs::path> source_files;
@@ -51,7 +51,7 @@ namespace rakpak::project
             else 
                 _module.usage_requirements.link_flags.push_back("-l" + metadata.name);
             
-            for (const auto& path : exports.include_directories)
+            for (const auto& path : exports.include_paths)
                 _module.usage_requirements.include_paths.push_back(fs::absolute(path));
             for (const auto& flag : exports.link_flags)
                 _module.usage_requirements.link_flags.push_back(flag);

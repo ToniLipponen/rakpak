@@ -9,14 +9,30 @@
 
 namespace rakpak::pipeline
 {
+    static void log_compiler_output(LoggerBase* logger, const process::ProcessResult& result)
+    {
+        auto lines = utils::string::split_sv(result.output.error, "\n");
+        for (auto line : lines)
+        {
+            if (utils::string::contains(line, "error:"))
+            {
+                auto error_parts = utils::string::split_sv(line, "error:", utils::string::SplitRule::MatchFull);
+                logger->log_error("{} {}", error_parts[0], error_parts[1]);
+            }
+            else if (utils::string::contains(line, "warning:"))
+            {
+                auto error_parts = utils::string::split_sv(line, "warning:", utils::string::SplitRule::MatchFull);
+                logger->log_warning("{} {}", error_parts[0], error_parts[1]);
+            }
+        }
+    }
+
     static int compile_object(PipelineContext& pipeline_context, const TU& tu, BuildOutput::Object& object_output)
     {
         auto& ctx = pipeline_context.build_context;
         auto& app_context = pipeline_context.app_context;
         LoggerBase* logger = app_context.logger.get();
-
         auto& build_output = ctx.build_output;
-        auto object_dir = build_output.object.directory;
 
         thread_local static std::vector<std::string_view> invoke_args;
         invoke_args.clear();
@@ -32,22 +48,7 @@ namespace rakpak::pipeline
         logger->log_info("'{}'", tu.source_path.c_str());
         process::ProcessResult result = process::invoke_capture("c++", invoke_args);
         if (result.exit_code != 0)
-        {
-            auto lines = utils::string::split_sv(result.output.error, "\n");
-            for (auto line : lines)
-            {
-                if (utils::string::contains(line, "error:"))
-                {
-                    auto error_parts = utils::string::split_sv(line, "error:", utils::string::SplitRule::MatchFull);
-                    logger->log_error("{} {}", error_parts[0], error_parts[1]);
-                }
-                else if (utils::string::contains(line, "warning:"))
-                {
-                    auto error_parts = utils::string::split_sv(line, "warning:", utils::string::SplitRule::MatchFull);
-                    logger->log_warning("{} {}", error_parts[0], error_parts[1]);
-                }
-            }
-        }
+            log_compiler_output(logger, result);
         else
             pipeline_context.build_cache.update_cache(tu.source_path, tu.dep_path);
         object_output.objects.push_back(tu.object_path);

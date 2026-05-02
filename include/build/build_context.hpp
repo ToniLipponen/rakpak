@@ -8,11 +8,6 @@
 
 namespace rakpak
 {
-    struct Toolchain
-    {
-        std::string compiler;
-    };
-
     // TODO: Figure out a better name for this
     struct TU 
     {

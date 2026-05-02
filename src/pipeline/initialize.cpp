@@ -176,7 +176,7 @@ namespace rakpak::pipeline
                 ctx.compiler_args.push_back(define.to_string());
         }
         { // Include paths
-            for (const auto& path : target.include_directories)
+            for (const auto& path : target.include_paths)
                 ctx.compiler_args.push_back("-I" + path.string());
             for (auto mod : modules.get_vector())
             {

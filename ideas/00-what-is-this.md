@@ -1,0 +1,1 @@
+I'm just storing my thoughts and ideas here. These are not fixed and will likely change, until I land on something I like. Then I will implement them and put them in the design folder.

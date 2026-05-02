@@ -2,11 +2,20 @@
 #include <pipeline.hpp>
 #include <process.hpp>
 #include <utils/string.hpp>
+#include <project/parser.hpp>
 #include <thread>
 
 namespace rakpak::cli
 {
     using namespace rakpak::project;
+    static void create_local_prefix(const fs::path& path)
+    {
+        fs::create_directories(path / "bin");
+        fs::create_directories(path / "lib");
+        fs::create_directories(path / "include");
+        fs::create_directories(path / "share");
+    }
+
     static void project_build(pipeline::PipelineContext& pipeline_context, const Project& project)
     {
         AppContext& app_context = pipeline_context.app_context;
@@ -20,23 +29,16 @@ namespace rakpak::cli
         }
     }
 
-    static void create_local_prefix(const fs::path& path)
-    {
-        fs::create_directories(path / "bin");
-        fs::create_directories(path / "lib");
-        fs::create_directories(path / "include");
-        fs::create_directories(path / "share");
-    }
-
     void build(AppContext& app_context)
     {
-        Project project = project::parse_from_directory(app_context, ".");
+        ProjectParser parser(app_context);
+        Project project = parser.parse_from_directory(".");
         fs::path root_path = fs::current_path();
 
         for (const auto& [_, path] : project.subprojects)
         {
             fs::current_path(path);
-            Project subproject = project::parse_from_directory(app_context, ".");
+            Project subproject = parser.parse_from_directory(".");
             pipeline::PipelineContext pipeline_context = { app_context };
             project_build(pipeline_context, subproject);
         }
@@ -47,7 +49,8 @@ namespace rakpak::cli
 
     void run(AppContext& app_context)
     {
-        Project project = project::parse_from_directory(app_context, ".");
+        ProjectParser parser(app_context);
+        Project project = parser.parse_from_directory(".");
         fs::path root_path = fs::current_path();
 
         fs::path prefix_path = root_path / ".run";
@@ -56,7 +59,7 @@ namespace rakpak::cli
         for (const auto& [_, path] : project.subprojects)
         {
             fs::current_path(path);
-            Project subproject = project::parse_from_directory(app_context, ".");
+            Project subproject = parser.parse_from_directory(".");
             pipeline::PipelineContext pipeline_context = { app_context };
             pipeline_context.prefix_path = prefix_path;
             project_build(pipeline_context, subproject);
@@ -82,6 +85,7 @@ namespace rakpak::cli
 
     static void project_clean(AppContext& app_context, const Project& project)
     {
+        ProjectParser parser(app_context);
         auto& logger = app_context.logger;
         logger->log_info("Cleaning {}", project.metadata.directory.string());
         fs::path bin_directory = project.metadata.directory / "bin";
@@ -105,7 +109,7 @@ namespace rakpak::cli
             for (const auto& [_, subproject_path] : project.subprojects)
             {
                 fs::current_path(subproject_path);
-                Project subproject = project::parse_from_directory(app_context, ".");
+                Project subproject = parser.parse_from_directory(".");
                 project_clean(app_context, subproject);
             }
             fs::current_path(root_path);
@@ -114,8 +118,9 @@ namespace rakpak::cli
 
     void clean(AppContext& app_context)
     {
+        ProjectParser parser(app_context);
         app_context.logger->log_info("Running clean command");
-        Project project = project::parse_from_directory(app_context, ".");
+        Project project = parser.parse_from_directory(".");
         project_clean(app_context, project);
     }
 
@@ -129,8 +134,9 @@ namespace rakpak::cli
 
     void install(AppContext& app_context)
     {
+        ProjectParser parser(app_context);
         app_context.logger->log_info("Running build command");
-        Project project = project::parse_from_directory(app_context, ".");
+        Project project = parser.parse_from_directory(".");
         fs::path root_path = fs::current_path();
 
         fs::path prefix_path = root_path / "local";
@@ -144,7 +150,7 @@ namespace rakpak::cli
         for (const auto& [_, path] : project.subprojects)
         {
             fs::current_path(path);
-            Project subproject = project::parse_from_directory(app_context, ".");
+            Project subproject = parser.parse_from_directory(".");
             pipeline::PipelineContext pipeline_context = { app_context };
             pipeline_context.prefix_path = prefix_path;
             project_build(pipeline_context, subproject);

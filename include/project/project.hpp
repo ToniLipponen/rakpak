@@ -19,7 +19,6 @@ namespace rakpak::project
         struct Metadata
         {
             std::string name;
-            //std::string version;
             Version version;
             std::string description;
             std::optional<BuildTarget::Variant> variant;
@@ -29,8 +28,8 @@ namespace rakpak::project
 
         std::unordered_set<std::string> build_flags;
         std::unordered_set<std::string> link_flags;
-        std::unordered_set<fs::path> include_directories;
-        std::unordered_set<fs::path> public_include_directories;
+        std::unordered_set<fs::path> include_paths;
+        std::unordered_set<fs::path> public_include_paths;
         std::vector<Define> defines;
 
         std::unordered_map<std::string, BuildProfile> build_profiles;
@@ -38,6 +37,4 @@ namespace rakpak::project
         std::unordered_map<std::string, fs::path> subprojects;
         std::unordered_map<std::string, std::vector<std::string>> provides;
     };
-
-    Project parse_from_directory(AppContext& app_context, const fs::path& project_directory);
 }

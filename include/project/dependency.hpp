@@ -13,5 +13,6 @@ namespace rakpak::project
         std::string name;
         std::string from;
         Visibility visibility = Visibility::Private;
+        /* Probably should have version matching here as well */
     };
 }
