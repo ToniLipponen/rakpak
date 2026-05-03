@@ -1,5 +1,4 @@
 #include <pipeline.hpp>
-#include <dependency_source.hpp>
 #include <build_cache.hpp>
 
 namespace rakpak::pipeline
@@ -19,7 +18,7 @@ namespace rakpak::pipeline
         {
             if (dep.visibility == project::Visibility::Private)
                 continue;
-            auto _dependency_module = PackageManager::instance().get_module(dep.from, dep.name);
+            auto _dependency_module = ModuleProviderRegistry::instance().get_module(dep.from, dep.name);
             if (_dependency_module != nullptr)
             {
                 for (const auto& path : _dependency_module->usage_requirements.include_paths)
@@ -37,7 +36,7 @@ namespace rakpak::pipeline
             {
                 logger->log_debug("Exporing as module: '{}'", name);
                 _module.name = name;
-                PackageManager::instance().add_module(build_context.project_name, _module);
+                ModuleProviderRegistry::instance().add_module(build_context.project_name, _module);
             }
         }
     }

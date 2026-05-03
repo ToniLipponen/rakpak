@@ -2,7 +2,7 @@
 #include <common_includes.hpp>
 #include <define.hpp>
 #include <dependency.hpp>
-#include <package_info.hpp>
+#include <module_provider.hpp>
 #include <build_target_enums.hpp>
 
 namespace rakpak::project

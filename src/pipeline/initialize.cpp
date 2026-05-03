@@ -1,6 +1,5 @@
 #include <build/pipeline.hpp>
 #include <pkg-config.hpp>
-#include <dependency_source.hpp>
 #include <build_cache.hpp>
 
 namespace rakpak::pipeline
@@ -109,83 +108,59 @@ namespace rakpak::pipeline
         AppContext& app_context = pipeline_context.app_context;
         auto& logger = app_context.logger;
         auto& ctx = pipeline_context.build_context;
-        // Clear
-        ctx.linker_args.clear();
         ctx.build_output = {};
-        //
         auto target = ctx.target = ctx.build_queue.front();
         auto scope = logger->scope(target.metadata.name);
         ctx.build_queue.pop_front();
         initialize_build_output(app_context, ctx);
 
+        ctx.linker_args.clear();
         ctx.linker_args.insert(target.link_flags.begin(), target.link_flags.end());
         UniqueVector<const Module*> modules;
         for (const auto& dependency : target.dependencies)
         {
-            auto _module = PackageManager::instance().get_module(dependency.from, dependency.name);
-            if (_module == nullptr)
-            {
-                if (dependency.from == "pkg-config")
-                {
-                    auto pkg_info = pkg_config::get_pkg(dependency.name);
-                    Module new_module;
-                    new_module.name = dependency.name;
-                    new_module.usage_requirements.include_paths = pkg_info.include_paths;
-                    new_module.usage_requirements.link_flags = pkg_info.libs;
-                    new_module.usage_requirements.build_flags = pkg_info.cflags;
-                    new_module.linkage = BuildTarget::Variant::Shared;
-                    PackageManager::instance().add_module(dependency.from, new_module);
-                }
-                else if (dependency.from == "system")
-                {
-                    Module new_module;
-                    new_module.name = dependency.name;
-                    new_module.usage_requirements.link_flags.push_back("-l" + dependency.name);
-                    PackageManager::instance().add_module(dependency.from, new_module);
-                }
-            }
-            _module = PackageManager::instance().get_module(dependency.from, dependency.name);
-            if (_module == nullptr)
-                _module = ctx.module_provider.get_module(dependency.name);
+            auto _module = ModuleProviderRegistry::instance().get_module(dependency.from, dependency.name);
             if (_module != nullptr)
                 modules.push_back(_module);
             else
             {
-                logger->log_error("Failed to find module '{}' from source '{}'", dependency.name, dependency.from);
-                exit(1);
+                _module = ctx.module_provider.get_module(dependency.name);
+                if (_module != nullptr)
+                    modules.push_back(_module);
+                else
+                {
+                    logger->log_error("Failed to find module '{}' from source '{}'", dependency.name, dependency.from);
+                    exit(1);
+                }
             }
         }
         ctx.compiler_args.clear();
         ctx.compiler_args.push_back("-MMD");
-        if (ctx.target.metadata.type == BuildTarget::Type::Library
-            && ctx.target.metadata.variant == BuildTarget::Variant::Shared)
+        if (ctx.target.metadata.type == BuildTarget::Type::Library && ctx.target.metadata.variant == BuildTarget::Variant::Shared)
             ctx.compiler_args.push_back("-fPIC");
-        
-        { // Build flags
-            ctx.compiler_args.insert(target.build_flags.begin(), target.build_flags.end());
-            ctx.compiler_args.insert(ctx.build_profile.build_flags.begin(), ctx.build_profile.build_flags.end());
-            for (auto mod : modules.get_vector())
-            {
-                auto& ur = mod->usage_requirements;
-                ctx.compiler_args.insert(ur.build_flags.begin(), ur.build_flags.end());
-                ctx.linker_args.insert(ur.link_flags.begin(), ur.link_flags.end());
-            }
-            for (const auto& define : target.defines)
-                ctx.compiler_args.push_back(define.to_string());
-            for (const auto& define : ctx.build_profile.defines)
-                ctx.compiler_args.push_back(define.to_string());
+        // Build flags
+        ctx.compiler_args.insert(target.build_flags.begin(), target.build_flags.end());
+        ctx.compiler_args.insert(ctx.build_profile.build_flags.begin(), ctx.build_profile.build_flags.end());
+        for (auto mod : modules.get_vector())
+        {
+            auto& ur = mod->usage_requirements;
+            ctx.compiler_args.insert(ur.build_flags.begin(), ur.build_flags.end());
+            ctx.linker_args.insert(ur.link_flags.begin(), ur.link_flags.end());
         }
-        { // Include paths
-            for (const auto& path : target.include_paths)
+        for (const auto& define : target.defines)
+            ctx.compiler_args.push_back(define.to_string());
+        for (const auto& define : ctx.build_profile.defines)
+            ctx.compiler_args.push_back(define.to_string());
+        //
+        // Include paths
+        for (const auto& path : target.include_paths)
+            ctx.compiler_args.push_back("-I" + path.string());
+        for (auto mod : modules.get_vector())
+        {
+            auto& ur = mod->usage_requirements;
+            for (auto& path : ur.include_paths)
                 ctx.compiler_args.push_back("-I" + path.string());
-            for (auto mod : modules.get_vector())
-            {
-                auto& ur = mod->usage_requirements;
-                for (auto& path : ur.include_paths)
-                    ctx.compiler_args.push_back("-I" + path.string());
-            }
         }
-
         for (const auto& path : target.source_files)
         {
             TU tu = get_tu_info(path, ctx.build_output.object);

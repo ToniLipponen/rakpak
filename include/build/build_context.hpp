@@ -33,6 +33,6 @@ namespace rakpak
         BuildOutput build_output;
         std::unordered_map<std::string, std::vector<std::string>> provides;
         // Intra project target dependencies
-        Package module_provider;
+        ModuleProvider module_provider;
     };
 }

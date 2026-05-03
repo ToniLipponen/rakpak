@@ -7,7 +7,14 @@ namespace rakpak::project
 {
     struct Toolchain
     {
-        std::optional<std::string> family;
+        enum class Family
+        {
+            Gcc,
+            Clang,
+            Msvc,
+        };
+
+        std::optional<Family> family;
         std::optional<Version> minimum_version;
     };
 }

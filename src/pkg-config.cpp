@@ -12,6 +12,27 @@ namespace rakpak::pkg_config
 {
     using namespace process;
 
+    PkgConfigList get_pkg_list()
+    {
+        std::vector<std::string_view> args = { "--list-package-names" };
+        ProcessResult result = process::invoke_capture("pkg-config", args);
+        PkgConfigList pkg_config_list;
+        if (result.exit_code != 0)
+        {
+            pkg_config_list.status = Status::Error;
+            pkg_config_list.error_message = result.output.error;
+            return pkg_config_list;
+        }
+        if (utils::string::contains(result.output.standard, "not found"))
+        {
+            pkg_config_list.status = Status::NotFound;
+            pkg_config_list.error_message = result.output.standard;
+            return pkg_config_list;
+        }
+        pkg_config_list.package_names = utils::string::split(result.output.standard);
+        return pkg_config_list;
+    }
+
     PkgConfigInfo get_pkg(std::string pkg_name)
     {
         return get_pkg(std::vector<std::string>{ pkg_name });

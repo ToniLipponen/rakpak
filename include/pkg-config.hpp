@@ -19,6 +19,14 @@ namespace rakpak::pkg_config
         std::vector<fs::path> include_paths;
     };
 
+    struct PkgConfigList
+    {
+        Status status = Status::Ok;
+        std::string error_message;
+        std::vector<std::string> package_names;
+    };
+
+    PkgConfigList get_pkg_list();
     PkgConfigInfo get_pkg(std::string pkg_name);
     PkgConfigInfo get_pkg(std::vector<std::string> pkg_names);
     std::future<PkgConfigInfo> get_pkg_async(std::string pkg_name);
